@@ -14,6 +14,7 @@ fn timing(time: f128) void {
 
 // fn calc(nRolls: usize) void {
 fn calc(nRolls: usize) void {
+    // For some reason passing the existing randomization from main() was way way way slow, like going from .5s -> 20 or 40
     const seed: u64 = @intCast(std.time.microTimestamp());
     var rand = rng.init(seed);
     var randS = rand.random();
@@ -48,6 +49,7 @@ fn calc(nRolls: usize) void {
 
 // fn smartCalc(nRolls: usize) void {
 fn smartCalc(nRolls: usize) void {
+    // For some reason passing the existing randomization from main() was way way way slow, like going from .5s -> 20 or 40
     const seed: u64 = @intCast(std.time.microTimestamp());
     var rand = rng.init(seed);
     var randS = rand.random();
