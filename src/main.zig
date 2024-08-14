@@ -66,8 +66,8 @@ pub fn main() !void {
     // const nThreads: usize = 1;
     // var nRounds: usize = 1_000;
 
-    const nThreads: usize = 6;
-    const nRounds: usize = 1_000;
+    const nThreads: usize = 72;
+    const nRounds: usize = 1_000_000_000;
 
     const nTrials: usize = 10;
     var times = [_]i128{0} ** nTrials;
