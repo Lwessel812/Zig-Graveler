@@ -17,217 +17,86 @@ fn calc(nRounds: usize) void {
     var rand = rng.init(seed);
     var randS = rand.random();
 
-    var count: usize = 0;
-    var pTurn: usize = 0; // Paralysis turns
+    var hits: usize = 0;
+    var max: usize = 0; // Paralysis turns
     var rounds: usize = 0;
 
-    while (pTurn < 177 and rounds < nRounds) {
-        count = 0;
+    while (max < 177 and rounds < nRounds) {
+        hits = 0;
 
         // Roll 231 4 sided dice
         for (0..231) |_| {
             // We dont actually care which number its comparing to, we just need a 25% chance
-            // if (rand.uintLessThan(usize, 4) == 0) {
             if (randS.uintLessThan(usize, 4) == 0) {
-                count += 1;
+                hits += 1;
             }
         }
 
-        if (count > pTurn) {
-            pTurn = count;
+        // Update the maximum amount of paralysis hits
+        if (hits > max) {
+            max = hits;
         }
 
         rounds += 1;
     }
 
-    std.debug.print("pTurn: {d}\n", .{pTurn});
+    std.debug.print("max: {d}\n", .{max});
     std.debug.print("rounds: {d}\n", .{rounds});
 }
 
-fn smartCalc(nRounds: usize) void {
-    const seed: u64 = @intCast(std.time.microTimestamp());
-    var rand = rng.init(seed);
-    var randS = rand.random();
+fn multi(nRounds: usize, nThreads: usize) !i128 {
+    var threads: [1_024]std.Thread = undefined; // If you have more than 1k threads why are you running this program?
 
-    var rounds: usize = 0;
-    var pTurn: usize = 0; // Paralysis turns
-    var sTurn: usize = 0; // Safe turns
-    var total: usize = 0; // Total turns
-    var best: usize = 0; // Best total turns made
+    const start: i128 = std.time.nanoTimestamp();
 
-    while (sTurn < 177 and rounds < nRounds) {
-        sTurn = 0;
-        pTurn = 0;
-        total = 0;
-
-        for (0..231) |_| {
-            if (randS.uintLessThan(usize, 4) == 0) {
-                pTurn += 1;
-            } else {
-                sTurn += 1;
-            }
-
-            total += 1;
-
-            if (sTurn > 54) {
-                break;
-            }
-        }
-
-        if (total > best) {
-            best = total;
-        }
-
-        rounds += 1;
+    for (0..nThreads) |i| {
+        threads[i] = try std.Thread.spawn(.{}, calc, .{nRounds}); // Loop to spawn threads
     }
 
-    if (best >= 231) {
-        std.debug.print("\n\nPASSED! We killed Rattata and Zubat!\n\n", .{});
-        return;
+    for (0..nThreads) |i| {
+        threads[i].join(); // Cleanup threads when they are done
     }
 
-    std.debug.print("best: {d} / 231 needed\n", .{best});
-    std.debug.print("rounds: {d}\n\n", .{rounds});
+    const end: i128 = std.time.nanoTimestamp();
+
+    return end - start;
 }
 
 pub fn main() !void {
-    const seed: u64 = @intCast(std.time.microTimestamp());
-    var rand = rng.init(seed);
-    var randS = rand.random();
-
     // const nThreads: usize = 1;
     // var nRounds: usize = 1_000;
 
-    const nThreads: usize = 16;
-    var nRounds: usize = 1_000_000_000;
+    const nThreads: usize = 6;
+    const nRounds: usize = 1_000;
 
-    var count: usize = 0;
-    var rounds: usize = 0;
-    var pTurn: usize = 0; // Paralysis turns
-    var sTurn: usize = 0; // Safe turns
-    var total: usize = 0; // Total turns
-    var best: usize = 0; // Best total turns made
+    const nTrials: usize = 10;
+    var times = [_]i128{0} ** nTrials;
 
-    const smart: bool = true;
+    var avg: i128 = 0;
 
-    switch (nThreads) {
-        0 => std.debug.print("You need to use more than 0 threads goober\n", .{}), // Dont be a goober
-        1 => {
-            if (smart) {
-                // I dont call calc() here because it ended up adding like 1% overhead to the time, and I dont really want the threads timing themselves anyway
-                std.debug.print("Running {d} rounds smartly on 1 thread\n", .{nRounds});
+    std.debug.print("Running {d} trials with {d} rounds on {d} threads\n\n", .{ nTrials, nRounds, nThreads });
 
-                const start: i128 = std.time.nanoTimestamp(); // Nanoseconds, because why not
-                // For some context in --release=fast on my laptop
-                // settings the start and end values takes between 50-200 ns
-                // subtraction takes between 20-80 ns
-                // std.debug.print takes between 16k-21k ns
-
-                while (sTurn < 177 and rounds < nRounds) {
-                    sTurn = 0;
-                    pTurn = 0;
-                    total = 0;
-
-                    for (0..231) |_| {
-                        if (randS.uintLessThan(usize, 4) == 0) {
-                            pTurn += 1;
-                        } else {
-                            sTurn += 1;
-                        }
-
-                        total += 1;
-
-                        if (sTurn > 54) {
-                            break;
-                        }
-                    }
-
-                    if (total > best) {
-                        best = total;
-                    }
-
-                    rounds += 1;
-                }
-
-                const end: i128 = std.time.nanoTimestamp();
-
-                if (best >= 231) {
-                    std.debug.print("\n\nPASSED! We killed Rattata and Zubat!\n\n", .{});
-                    return;
-                }
-
-                std.debug.print("best: {d} / 231 needed\n", .{best});
-                std.debug.print("rounds: {d}\n", .{rounds});
-
-                timing(@floatFromInt(end - start));
-            } else {
-                // I dont call calc() here because it ended up adding like 1% overhead to the time, and I dont really want the threads timing themselves anyway
-                std.debug.print("Running {d} rounds on 1 thread\n", .{nRounds});
-
-                const start: i128 = std.time.nanoTimestamp(); // Nanoseconds, because why not
-                // For some context in --release=fast on my laptop
-                // settings the start and end values takes between 50-200 ns
-                // subtraction takes between 20-80 ns
-                // std.debug.print takes between 16k-21k ns
-
-                while (pTurn < 177 and rounds < nRounds) {
-                    count = 0;
-
-                    // Roll 231 4 sided dice
-                    for (0..231) |_| {
-                        // We dont actually care which number its comparing to, we just need a 25% chance
-                        // if (rand.uintLessThan(usize, 4) == 0) {
-                        if (randS.uintLessThan(usize, 4) == 0) {
-                            count += 1;
-                        }
-                    }
-
-                    if (count > pTurn) {
-                        pTurn = count;
-                    }
-
-                    rounds += 1;
-                    // std.debug.print("Roll: {d}\n", .{rounds});
-                }
-
-                const end: i128 = std.time.nanoTimestamp();
-
-                std.debug.print("pTurn: {d}\n", .{pTurn});
-                std.debug.print("rounds: {d}\n", .{rounds});
-
-                timing(@floatFromInt(end - start));
-            }
-        },
-        else => {
-            if (smart) {
-                std.debug.print("Running {d} rounds smartly on {d} threads\n\n", .{ nRounds, nThreads });
-            } else {
-                std.debug.print("Running {d} rounds on {d} threads\n\n", .{ nRounds, nThreads });
-            }
-
-            nRounds = @divTrunc(nRounds, nThreads); // Truncate just in case nRounds is small enough this results in a float
-
-            var threads: [1_024]std.Thread = undefined; // If you have more than 1k threads why are you running this program?
-
-            const start: i128 = std.time.nanoTimestamp();
-
-            if (smart) {
-                for (0..nThreads) |i| {
-                    threads[i] = try std.Thread.spawn(.{}, smartCalc, .{nRounds}); // Loop to spawn threads
-                }
-            } else {
-                for (0..nThreads) |i| {
-                    threads[i] = try std.Thread.spawn(.{}, calc, .{nRounds}); // Loop to spawn threads
-                }
-            }
-
-            for (0..nThreads) |i| {
-                threads[i].join(); // Cleanup threads when they are done
-            }
-
-            const end: i128 = std.time.nanoTimestamp();
-
-            timing(@floatFromInt(end - start));
-        },
+    for (0..nTrials) |i| {
+        times[i] = try multi(@divTrunc(nRounds, nThreads), nThreads);
     }
+
+    var best: i128 = times[0];
+
+    for (1..times.len) |i| {
+        if (times[i] < best) {
+            best = times[i];
+        }
+    }
+
+    std.debug.print("Best runtime ", .{});
+    timing(@floatFromInt(best));
+
+    for (0..times.len) |i| {
+        avg += times[i];
+    }
+
+    avg = @divExact(avg, @as(i128, nTrials));
+
+    std.debug.print("Average runtime ", .{});
+    timing(@floatFromInt(avg));
 }
